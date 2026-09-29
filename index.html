@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Image Anchor AR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: two-column workbench — inputs & settings left, live preview + export right; stacks on phones. */
+:root {
+  --bg: #eef1f2;
+  --panel: #ffffff;
+  --ink: #16201f;
+  --muted: #5d6b6a;
+  --line: #d3dbdb;
+  --accent: #0b7a74;
+  --accent-ink: #ffffff;
+  --accent-soft: #d8efed;
+  --mark: #e8531f;
+  --good: #1d8a4a; --warn: #b7791f; --bad: #c0392b;
+  --checker-a: #e4e9e9; --checker-b: #f6f8f8;
+  --font-display: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1514; --panel: #18201f; --ink: #e7eeed; --muted: #93a3a1; --line: #2b3736;
+    --accent: #3cc2b8; --accent-ink: #062321; --accent-soft: #163a37; --mark: #ff7a45;
+    --good: #4cc07a; --warn: #e0a64a; --bad: #ef6b5b;
+    --checker-a: #1f2928; --checker-b: #253130;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1514; --panel: #18201f; --ink: #e7eeed; --muted: #93a3a1; --line: #2b3736;
+  --accent: #3cc2b8; --accent-ink: #062321; --accent-soft: #163a37; --mark: #ff7a45;
+  --good: #4cc07a; --warn: #e0a64a; --bad: #ef6b5b;
+  --checker-a: #1f2928; --checker-b: #253130;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 48px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; margin-bottom: 22px; }
+h1 { font: 800 clamp(28px, 5vw, 42px)/1 var(--font-display); letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.lede { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; align-items: start; }
+@media (max-width: 820px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 18px; min-width: 0; }
+.eyebrow { font: 600 11px/1 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+h2 { font: 600 17px/1.2 var(--font-display); margin: 0; }
+.slots { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 420px) { .slots { grid-template-columns: 1fr; } }
+.slot { position: relative; display: grid; gap: 8px; }
+.drop { position: relative; aspect-ratio: 4 / 3; max-width: 100%; border: 1.5px dashed var(--line); border-radius: 10px; display: grid; place-items: center; overflow: hidden; cursor: pointer; transition: border-color .15s, background .15s; }
+.drop.checker { background-color: var(--checker-b); background-image: linear-gradient(45deg, var(--checker-a) 25%, transparent 25%, transparent 75%, var(--checker-a) 75%), linear-gradient(45deg, var(--checker-a) 25%, transparent 25%, transparent 75%, var(--checker-a) 75%); background-size: 16px 16px; background-position: 0 0, 8px 8px; }
+.drop:hover, .drop.over { border-color: var(--accent); }
+.drop:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.drop img { width: 100%; height: 100%; object-fit: contain; }
+.drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.drop .tag { position: absolute; left: 8px; top: 8px; font: 600 10px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; background: var(--panel); color: var(--ink); border: 1px solid var(--line); padding: 5px 7px; border-radius: 6px; pointer-events: none; }
+.slot-title { font-weight: 600; font-size: 14px; }
+.slot-sub { font-size: 12.5px; color: var(--muted); margin-top: -6px; }
+.meta { font: 12px/1.4 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; min-height: 1.4em; overflow-wrap: anywhere; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--font-body); padding: 5px 9px; border-radius: 99px; border: 1px solid currentColor; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.good { color: var(--good); } .pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); }
+.fields { display: grid; gap: 14px; }
+.field { display: grid; gap: 6px; }
+.field label, .field .lbl { font-weight: 600; font-size: 13.5px; display: flex; justify-content: space-between; gap: 8px; }
+.field output, .field .val { font: 600 12.5px var(--font-mono); color: var(--accent); font-variant-numeric: tabular-nums; }
+.hint { font-size: 12.5px; color: var(--muted); margin: 0; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.num { display: flex; align-items: center; gap: 8px; }
+.num input { width: 110px; font: 600 16px var(--font-mono); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.num span { color: var(--muted); font-size: 13px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--bg); padding: 4px; border-radius: 10px; border: 1px solid var(--line); }
+.seg.four { grid-template-columns: repeat(4, 1fr); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { display: block; text-align: center; padding: 8px 6px; border-radius: 7px; cursor: pointer; font-weight: 600; font-size: 13px; color: var(--muted); justify-content: center; }
+.seg input:checked + label { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+.seg input:focus-visible + label { outline: 2px solid var(--accent); }
+details { border-top: 1px solid var(--line); padding-top: 12px; }
+summary { cursor: pointer; font-weight: 600; font-size: 13.5px; color: var(--muted); }
+details[open] summary { margin-bottom: 12px; }
+.stage { position: relative; border-radius: 10px; overflow: hidden; background: var(--bg); border: 1px solid var(--line); }
+.stage canvas { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; max-width: 100%; }
+.stage .cap { position: absolute; right: 10px; bottom: 8px; font: 11px var(--font-mono); color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 600 14.5px var(--font-body); padding: 11px 16px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.status { font-size: 13px; color: var(--muted); min-height: 1.5em; }
+.status.err { color: var(--bad); }
+ol.steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13.5px; }
+ol.steps b { font-weight: 600; }
+.note { font-size: 12.5px; color: var(--muted); background: var(--bg); border-radius: 10px; padding: 10px 12px; margin: 0; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <p class="eyebrow">AR Quick Look · image anchor builder</p>
+      <h1>Image <span>Anchor</span> AR</h1>
+      <p class="lede">Pick the image your iPhone should look for, then the PNG that appears on it. You get a <code>.usdz</code> that opens in Apple's built-in AR viewer and only shows your PNG when that exact image is in view.</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: inputs + settings -->
+    <section class="panel" aria-label="Inputs and settings">
+      <div>
+        <p class="eyebrow">1 · Images</p>
+        <div class="slots">
+          <div class="slot">
+            <div class="drop" id="dropTarget">
+              <span class="tag">Target</span>
+              <img id="imgTarget" alt="Target image preview">
+              <input type="file" id="fileTarget" accept="image/*" aria-label="Choose target image">
+            </div>
+            <div class="slot-title">Target image</div>
+            <div class="slot-sub">What the iPhone looks for</div>
+            <div class="meta" id="metaTarget"></div>
+          </div>
+          <div class="slot">
+            <div class="drop checker" id="dropOverlay">
+              <span class="tag">Overlay</span>
+              <img id="imgOverlay" alt="Overlay PNG preview">
+              <input type="file" id="fileOverlay" accept="image/png,image/*" aria-label="Choose overlay PNG">
+            </div>
+            <div class="slot-title">Overlay PNG</div>
+            <div class="slot-sub">What appears on top (transparency kept)</div>
+            <div class="meta" id="metaOverlay"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fields">
+        <p class="eyebrow" style="margin:0">2 · Settings</p>
+
+        <div class="field">
+          <label for="widthCm">Real-world width of the target</label>
+          <div class="num"><input type="number" id="widthCm" min="1" max="1000" step="0.1" value="15"><span>cm — measure it printed or on screen</span></div>
+          <p class="hint">ARKit uses this to work out distance. A wrong value makes the overlay drift or float.</p>
+        </div>
+
+        <div class="field">
+          <span class="lbl">Placement</span>
+          <div class="seg" role="radiogroup" aria-label="Placement">
+            <input type="radio" name="mode" id="modeFlat" value="flat" checked><label for="modeFlat">Flat on image</label>
+            <input type="radio" name="mode" id="modeStand" value="stand"><label for="modeStand">Pop-up</label>
+          </div>
+          <p class="hint" id="modeHint">Lies on the image like a sticker. Works on walls, screens and tables.</p>
+        </div>
+
+        <div class="field">
+          <label for="size">Overlay size <output id="sizeOut" for="size"></output></label>
+          <input type="range" id="size" min="10" max="300" step="1" value="100">
+        </div>
+
+        <details>
+          <summary>Position, rotation &amp; look</summary>
+          <div class="fields">
+            <div class="row2">
+              <div class="field">
+                <label for="offX">Left / right <output id="offXOut" for="offX"></output></label>
+                <input type="range" id="offX" min="-100" max="100" step="1" value="0">
+              </div>
+              <div class="field">
+                <label for="offY">Up / down <output id="offYOut" for="offY"></output></label>
+                <input type="range" id="offY" min="-100" max="100" step="1" value="0">
+              </div>
+            </div>
+            <div class="field">
+              <label for="lift">Lift off the surface <output id="liftOut" for="lift"></output></label>
+              <input type="range" id="lift" min="0" max="30" step="0.1" value="0.2">
+            </div>
+            <div class="field">
+              <span class="lbl">Rotate overlay</span>
+              <div class="seg four" role="radiogroup" aria-label="Rotation">
+                <input type="radio" name="rot" id="rot0" value="0" checked><label for="rot0">0°</label>
+                <input type="radio" name="rot" id="rot90" value="90"><label for="rot90">90°</label>
+                <input type="radio" name="rot" id="rot180" value="180"><label for="rot180">180°</label>
+                <input type="radio" name="rot" id="rot270" value="270"><label for="rot270">270°</label>
+              </div>
+            </div>
+            <div class="field">
+              <span class="lbl">Lighting</span>
+              <div class="seg" role="radiogroup" aria-label="Lighting">
+                <input type="radio" name="shade" id="shadeUnlit" value="unlit" checked><label for="shadeUnlit">True colours</label>
+                <input type="radio" name="shade" id="shadeLit" value="lit"><label for="shadeLit">Lit by room</label>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- RIGHT: preview + export -->
+    <section class="panel" aria-label="Preview and export">
+      <div>
+        <p class="eyebrow">3 · Preview</p>
+        <div class="stage">
+          <canvas id="preview" width="800" height="600" aria-label="Preview of the overlay on the target image"></canvas>
+          <span class="cap" id="cap"></span>
+        </div>
+      </div>
+
+      <div style="display:grid; gap:10px">
+        <p class="eyebrow" style="margin:0">4 · Export</p>
+        <div class="actions">
+          <button class="btn primary" id="btnAR" type="button" hidden>View in AR</button>
+          <button class="btn" id="btnDownload" type="button">Download .usdz</button>
+        </div>
+        <div class="status" id="status" role="status"></div>
+      </div>
+
+      <div>
+        <p class="eyebrow">How to use it</p>
+        <ol class="steps">
+          <li><b>On iPhone (Safari):</b> tap <b>View in AR</b>. Point the camera at the target and the PNG snaps onto it.</li>
+          <li><b>On a Mac:</b> download the <code>.usdz</code> and AirDrop it to your iPhone. It opens straight in AR Quick Look.</li>
+          <li>Once it's open, tap the <b>AR</b> tab at the top, then aim at the target image. Nothing shows until the image is found.</li>
+        </ol>
+      </div>
+      <p class="note">Best targets: sharp, high-contrast images with lots of detail and no big flat areas or repeating patterns. Matte prints track better than glossy ones. The example loaded here is generated on the page, so you can try it by pointing your phone at your screen (set the width to what you see on screen).</p>
+    </section>
+  </div>
+</div>
+
+<!-- ===== Core: USDZ builder (pure functions, no DOM) ===== -->
+<script id="core">
+const USDZ = (() => {
+  const enc = new TextEncoder();
+  const f = (n) => (Math.abs(n) < 1e-9 ? 0 : n).toFixed(4);
+
+  // Build the USDA scene. All units are centimetres (metersPerUnit = 0.01).
+  function buildUsda(p) {
+    const W = p.targetWidthCm;
+    const H = W * p.targetAspect;          // target height (cm)
+    const w = W * p.sizePct / 100;         // overlay width (cm)
+    const h = w * p.overlayAspect;         // overlay height (cm)
+    const cx = W * p.offX / 100;           // + = right
+    const cz = H * p.offY / 100;           // + = towards bottom of image
+    const lift = p.liftCm;
+    const th = (p.rotDeg || 0) * Math.PI / 180;
+    const c = Math.cos(th), s = Math.sin(th);
+
+    // Image anchor space: image lies in X/Z, +Y points out of the image, image top is -Z.
+    let pts, n;
+    if (p.mode === 'stand') {
+      pts = [[-w/2, lift, 0], [w/2, lift, 0], [w/2, lift + h, 0], [-w/2, lift + h, 0]];
+      n = [0, 0, 1];
+    } else {
+      pts = [[-w/2, lift, h/2], [w/2, lift, h/2], [w/2, lift, -h/2], [-w/2, lift, -h/2]];
+      n = [0, 1, 0];
+    }
+    const rot = ([x, y, z]) => [x * c - z * s, y, x * s + z * c];
+    pts = pts.map(rot).map(([x, y, z]) => [x + cx, y, z + cz]);
+    n = rot(n);
+
+    const mn = [0, 1, 2].map(i => Math.min(...pts.map(q => q[i])));
+    const mx = [0, 1, 2].map(i => Math.max(...pts.map(q => q[i])));
+    const v3 = (a) => `(${a.map(f).join(', ')})`;
+    const M = '/Root/Overlay/Mat';
+    const unlit = p.shading !== 'lit';
+
+    const surface = unlit
+      ? `            color3f inputs:diffuseColor = (0, 0, 0)
+            color3f inputs:emissiveColor.connect = <${M}/Tex.outputs:rgb>`
+      : `            color3f inputs:diffuseColor.connect = <${M}/Tex.outputs:rgb>`;
+
+    return `#usda 1.0
+(
+    customLayerData = {
+        string creator = "Image Anchor AR"
+    }
+    defaultPrim = "Root"
+    metersPerUnit = 0.01
+    upAxis = "Y"
+)
+
+def Xform "Root" (
+    prepend apiSchemas = ["Preliminary_AnchoringAPI"]
+)
+{
+    uniform token preliminary:anchoring:type = "image"
+    rel preliminary:imageAnchoring:referenceImage = </Root/TargetImage>
+
+    def Preliminary_ReferenceImage "TargetImage"
+    {
+        uniform asset image = @${p.targetFile}@
+        uniform double physicalWidth = ${f(W)}
+    }
+
+    def Mesh "Overlay" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        uniform bool doubleSided = 1
+        float3[] extent = [${v3(mn)}, ${v3(mx)}]
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0, 1, 2, 3]
+        point3f[] points = [${pts.map(v3).join(', ')}]
+        normal3f[] normals = [${[0,1,2,3].map(() => v3(n)).join(', ')}] (
+            interpolation = "vertex"
+        )
+        texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+            interpolation = "vertex"
+        )
+        uniform token subdivisionScheme = "none"
+        rel material:binding = <${M}>
+
+        def Material "Mat"
+        {
+            token outputs:surface.connect = <${M}/Surface.outputs:surface>
+
+            def Shader "Surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+${surface}
+                float inputs:opacity.connect = <${M}/Tex.outputs:a>
+                float inputs:roughness = 1
+                float inputs:metallic = 0
+                token outputs:surface
+            }
+
+            def Shader "Tex"
+            {
+                uniform token info:id = "UsdUVTexture"
+                asset inputs:file = @${p.overlayFile}@
+                float2 inputs:st.connect = <${M}/StReader.outputs:result>
+                token inputs:sourceColorSpace = "sRGB"
+                token inputs:wrapS = "clamp"
+                token inputs:wrapT = "clamp"
+                float3 outputs:rgb
+                float outputs:a
+            }
+
+            def Shader "StReader"
+            {
+                uniform token info:id = "UsdPrimvarReader_float2"
+                string inputs:varname = "st"
+                float2 outputs:result
+            }
+        }
+    }
+}
+`;
+  }
+
+  // ---- ZIP (stored, 64-byte aligned data, as the USDZ spec requires) ----
+  const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+      t[i] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32(buf) {
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function zipStore(files) {
+    const parts = [];
+    const central = [];
+    let offset = 0;
+    const DOS_DATE = (0 << 9) | (1 << 5) | 1; // 1980-01-01
+
+    for (const file of files) {
+      const name = enc.encode(file.name);
+      const data = file.data;
+      const crc = crc32(data);
+      const base = offset + 30 + name.length;
+      let pad = (64 - (base % 64)) % 64;
+      if (pad > 0 && pad < 4) pad += 64;       // extra field needs a 4-byte header
+      const hdr = new Uint8Array(30 + name.length + pad);
+      const dv = new DataView(hdr.buffer);
+      dv.setUint32(0, 0x04034b50, true);
+      dv.setUint16(4, 20, true);
+      dv.setUint16(6, 0, true);
+      dv.setUint16(8, 0, true);                 // stored
+      dv.setUint16(10, 0, true);
+      dv.setUint16(12, DOS_DATE, true);
+      dv.setUint32(14, crc, true);
+      dv.setUint32(18, data.length, true);
+      dv.setUint32(22, data.length, true);
+      dv.setUint16(26, name.length, true);
+      dv.setUint16(28, pad, true);
+      hdr.set(name, 30);
+      if (pad) {
+        dv.setUint16(30 + name.length, 0x1986, true); // private padding id
+        dv.setUint16(32 + name.length, pad - 4, true);
+      }
+      central.push({ name, crc, size: data.length, offset });
+      parts.push(hdr, data);
+      offset += hdr.length + data.length;
+    }
+
+    const cdStart = offset;
+    for (const e of central) {
+      const cd = new Uint8Array(46 + e.name.length);
+      const dv = new DataView(cd.buffer);
+      dv.setUint32(0, 0x02014b50, true);
+      dv.setUint16(4, 20, true);
+      dv.setUint16(6, 20, true);
+      dv.setUint16(8, 0, true);
+      dv.setUint16(10, 0, true);
+      dv.setUint16(12, 0, true);
+      dv.setUint16(14, DOS_DATE, true);
+      dv.setUint32(16, e.crc, true);
+      dv.setUint32(20, e.size, true);
+      dv.setUint32(24, e.size, true);
+      dv.setUint16(28, e.name.length, true);
+      dv.setUint32(42, e.offset, true);
+      cd.set(e.name, 46);
+      parts.push(cd);
+      offset += cd.length;
+    }
+    const end = new Uint8Array(22);
+    const dv = new DataView(end.buffer);
+    dv.setUint32(0, 0x06054b50, true);
+    dv.setUint16(8, central.length, true);
+    dv.setUint16(10, central.length, true);
+    dv.setUint32(12, offset - cdStart, true);
+    dv.setUint32(16, cdStart, true);
+    parts.push(end);
+
+    const out = new Uint8Array(offset + 22);
+    let o = 0;
+    for (const p of parts) { out.set(p, o); o += p.length; }
+    return out;
+  }
+
+  function buildUsdz(p, targetBytes, overlayBytes) {
+    const usda = enc.encode(buildUsda(p));
+    return zipStore([
+      { name: 'scene.usda', data: usda },
+      { name: p.targetFile, data: targetBytes },
+      { name: p.overlayFile, data: overlayBytes },
+    ]);
+  }
+
+  return { buildUsda, zipStore, buildUsdz, crc32 };
+})();
+if (typeof module !== 'undefined') module.exports = USDZ;
+</script>
+
+<!-- ===== UI ===== -->
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const MAX_TEX = 2048;
+  const state = {
+    target: null,   // { canvas, bytes, ext, name, w, h }
+    overlay: null,
+  };
+
+  // ---------- image helpers ----------
+  function loadImage(src) {
+    return new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => res(img);
+      img.onerror = () => rej(new Error('That file could not be read as an image. Try a PNG or JPEG.'));
+      img.src = src;
+    });
+  }
+  function toCanvas(img, maxSide, flattenWhite) {
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    const k = Math.min(1, maxSide / Math.max(iw, ih));
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(iw * k));
+    cv.height = Math.max(1, Math.round(ih * k));
+    const ctx = cv.getContext('2d');
+    if (flattenWhite) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); }
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, cv.width, cv.height);
+    return cv;
+  }
+  function canvasBytes(cv, type, q) {
+    return new Promise((res, rej) => cv.toBlob(async (b) => {
+      if (!b) return rej(new Error('Could not encode the image.'));
+      res(new Uint8Array(await b.arrayBuffer()));
+    }, type, q));
+  }
+
+  // Rough "trackability" check: average edge strength on a small greyscale copy.
+  function detailScore(cv) {
+    const k = Math.min(1, 320 / Math.max(cv.width, cv.height));
+    const w = Math.max(2, Math.round(cv.width * k)), h = Math.max(2, Math.round(cv.height * k));
+    const t = document.createElement('canvas'); t.width = w; t.height = h;
+    const ctx = t.getContext('2d'); ctx.drawImage(cv, 0, 0, w, h);
+    const d = ctx.getImageData(0, 0, w, h).data;
+    const g = new Float32Array(w * h);
+    for (let i = 0; i < w * h; i++) g[i] = 0.299 * d[i*4] + 0.587 * d[i*4+1] + 0.114 * d[i*4+2];
+    let sum = 0, flat = 0, n = 0;
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      const m = Math.abs(g[i+1] - g[i-1]) + Math.abs(g[i+w] - g[i-w]);
+      sum += m; if (m < 4) flat++; n++;
+    }
+    return { edge: sum / n, flat: flat / n };
+  }
+  function rateDetail({ edge, flat }) {
+    if (edge < 6 || flat > 0.92) return ['bad', 'Low detail', 'May not be recognised. Try a busier, higher-contrast image.'];
+    if (edge < 12 || flat > 0.85) return ['warn', 'OK detail', 'Should work. More contrast and texture helps.'];
+    return ['good', 'Good detail', 'Plenty of texture for tracking.'];
+  }
+
+  async function setTarget(img, name) {
+    const cv = toCanvas(img, MAX_TEX, true);
+    const bytes = await canvasBytes(cv, 'image/jpeg', 0.92);
+    state.target = { canvas: cv, bytes, ext: 'jpg', name, w: cv.width, h: cv.height };
+    $('imgTarget').src = cv.toDataURL('image/jpeg', 0.8);
+    const [cls, txt, tip] = rateDetail(detailScore(cv));
+    $('metaTarget').innerHTML = '';
+    const dims = document.createElement('div'); dims.textContent = `${cv.width} × ${cv.height}px`;
+    const pill = document.createElement('span'); pill.className = 'pill ' + cls; pill.textContent = txt; pill.title = tip;
+    $('metaTarget').append(dims, pill);
+    render();
+  }
+  async function setOverlay(img, name) {
+    const cv = toCanvas(img, MAX_TEX, false);
+    const bytes = await canvasBytes(cv, 'image/png');
+    state.overlay = { canvas: cv, bytes, ext: 'png', name, w: cv.width, h: cv.height };
+    $('imgOverlay').src = cv.toDataURL('image/png');
+    $('metaOverlay').textContent = `${cv.width} × ${cv.height}px · ${(bytes.length / 1024).toFixed(0)} KB`;
+    render();
+  }
+
+  async function handleFile(file, which) {
+    if (!file) return;
+    setStatus('');
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await loadImage(url);
+      const base = file.name.replace(/\.[^.]+$/, '') || 'image';
+      if (which === 'target') await setTarget(img, base); else await setOverlay(img, base);
+    } catch (e) { setStatus(e.message, true); }
+    finally { URL.revokeObjectURL(url); }
+  }
+
+  function wireDrop(dropId, inputId, which) {
+    const drop = $(dropId), input = $(inputId);
+    input.addEventListener('change', () => handleFile(input.files[0], which));
+    ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+    drop.addEventListener('drop', (e) => handleFile(e.dataTransfer.files[0], which));
+  }
+  wireDrop('dropTarget', 'fileTarget', 'target');
+  wireDrop('dropOverlay', 'fileOverlay', 'overlay');
+
+  // ---------- settings ----------
+  function params() {
+    const t = state.target, o = state.overlay;
+    const width = parseFloat($('widthCm').value);
+    return {
+      targetWidthCm: isFinite(width) && width > 0 ? width : 15,
+      targetAspect: t ? t.h / t.w : 1,
+      overlayAspect: o ? o.h / o.w : 1,
+      sizePct: +$('size').value,
+      offX: +$('offX').value,
+      offY: +$('offY').value,
+      liftCm: +$('lift').value,
+      mode: document.querySelector('input[name="mode"]:checked').value,
+      rotDeg: +document.querySelector('input[name="rot"]:checked').value,
+      shading: document.querySelector('input[name="shade"]:checked').value,
+      targetFile: 'target.' + (t ? t.ext : 'jpg'),
+      overlayFile: 'overlay.png',
+    };
+  }
+  function updateOutputs(p) {
+    const w = p.targetWidthCm * p.sizePct / 100;
+    $('sizeOut').textContent = `${p.sizePct}% · ${w.toFixed(1)} cm wide`;
+    $('offXOut').textContent = (p.offX > 0 ? '+' : '') + p.offX + '%';
+    $('offYOut').textContent = (p.offY > 0 ? '+' : '') + p.offY + '%';
+    $('liftOut').textContent = p.liftCm.toFixed(1) + ' cm';
+    $('modeHint').textContent = p.mode === 'flat'
+      ? 'Lies on the image like a sticker. Works on walls, screens and tables.'
+      : 'Stands up out of the image like a pop-up card. Best when the image lies flat on a table.';
+  }
+  document.querySelectorAll('input').forEach(el => {
+    if (el.type !== 'file') el.addEventListener('input', render);
+  });
+
+  // ---------- preview ----------
+  const cvs = $('preview');
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  function render() {
+    const p = params();
+    updateOutputs(p);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const cw = cvs.clientWidth || 600, ch = Math.round(cw * 3 / 4);
+    if (cvs.width !== Math.round(cw * dpr)) { cvs.width = Math.round(cw * dpr); cvs.height = Math.round(ch * dpr); }
+    const ctx = cvs.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cw, ch);
+    const t = state.target, o = state.overlay;
+    if (!t || !o) {
+      ctx.fillStyle = css('--muted'); ctx.font = '14px ' + css('--font-body');
+      ctx.textAlign = 'center'; ctx.fillText('Add a target image and an overlay PNG', cw / 2, ch / 2);
+      $('cap').textContent = ''; return;
+    }
+
+    const W = p.targetWidthCm, H = W * p.targetAspect;
+    const w = W * p.sizePct / 100, h = w * p.overlayAspect;
+    const cx = W * p.offX / 100, cz = H * p.offY / 100;
+    const th = p.rotDeg * Math.PI / 180;
+    const pad = 28;
+
+    if (p.mode === 'flat') {
+      // Top-down view. Bounds in cm, origin at target centre.
+      const c = Math.abs(Math.cos(th)), s = Math.abs(Math.sin(th));
+      const bw = w * c + h * s, bh = w * s + h * c;
+      const minX = Math.min(-W/2, cx - bw/2), maxX = Math.max(W/2, cx + bw/2);
+      const minY = Math.min(-H/2, cz - bh/2), maxY = Math.max(H/2, cz + bh/2);
+      const k = Math.min((cw - pad*2) / (maxX - minX), (ch - pad*2) / (maxY - minY));
+      const ox = cw/2 - (minX + maxX)/2 * k, oy = ch/2 - (minY + maxY)/2 * k;
+      ctx.drawImage(t.canvas, ox - W/2*k, oy - H/2*k, W*k, H*k);
+      drawBrackets(ctx, ox - W/2*k, oy - H/2*k, W*k, H*k);
+      ctx.save();
+      ctx.translate(ox + cx*k, oy + cz*k); ctx.rotate(th);
+      ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = Math.min(24, 4 + p.liftCm * k * 0.6); ctx.shadowOffsetY = Math.min(18, 2 + p.liftCm * k * 0.3);
+      ctx.drawImage(o.canvas, -w/2*k, -h/2*k, w*k, h*k);
+      ctx.restore();
+      $('cap').textContent = 'top-down view';
+    } else {
+      // Angled view: floor squashed vertically, overlay upright.
+      const sq = 0.42;
+      const face = Math.cos(th); // + faces viewer, - shows back (mirrored)
+      const ow = w * Math.abs(face) || w * 0.03;
+      const minX = Math.min(-W/2, cx - ow/2), maxX = Math.max(W/2, cx + ow/2);
+      const minY = Math.min(-H/2*sq, cz*sq - p.liftCm - h), maxY = H/2*sq;
+      const k = Math.min((cw - pad*2) / (maxX - minX), (ch - pad*2) / (maxY - minY));
+      const ox = cw/2 - (minX + maxX)/2 * k, oy = ch/2 - (minY + maxY)/2 * k;
+      ctx.save();
+      ctx.translate(ox, oy); ctx.scale(1, sq);
+      ctx.drawImage(t.canvas, -W/2*k, -H/2*k, W*k, H*k);
+      drawBrackets(ctx, -W/2*k, -H/2*k, W*k, H*k);
+      ctx.restore();
+      const fx = ox + cx*k, fy = oy + cz*sq*k;
+      // contact shadow
+      ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.25)';
+      ctx.beginPath(); ctx.ellipse(fx, fy, Math.max(4, ow/2*k), Math.max(2, ow*0.08*k), 0, 0, Math.PI*2); ctx.fill(); ctx.restore();
+      ctx.save();
+      ctx.translate(fx, fy - p.liftCm*k);
+      ctx.scale(face < 0 ? -1 : 1, 1);
+      ctx.drawImage(o.canvas, -ow/2*k, -h*k, ow*k, h*k);
+      ctx.restore();
+      $('cap').textContent = 'angled view';
+    }
+  }
+  function drawBrackets(ctx, x, y, w, h) {
+    const L = Math.min(w, h) * 0.12;
+    ctx.save(); ctx.strokeStyle = css('--mark'); ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    const pts = [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]];
+    for (const [px, py, sx, sy] of pts) {
+      ctx.beginPath(); ctx.moveTo(px + sx*L, py); ctx.lineTo(px, py); ctx.lineTo(px, py + sy*L); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  new ResizeObserver(() => render()).observe(cvs);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', render);
+
+  // ---------- export ----------
+  function setStatus(msg, err) { const s = $('status'); s.textContent = msg; s.classList.toggle('err', !!err); }
+  function makeUsdz() {
+    if (!state.target || !state.overlay) throw new Error('Add both images first.');
+    const p = params();
+    const bytes = USDZ.buildUsdz(p, state.target.bytes, state.overlay.bytes);
+    return new Blob([bytes], { type: 'model/vnd.usdz+zip' });
+  }
+  function fileName() {
+    const n = (state.target?.name || 'image').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '') || 'image';
+    return `${n}-ar.usdz`;
+  }
+  let lastUrl = null;
+  function freshUrl(blob) { if (lastUrl) URL.revokeObjectURL(lastUrl); lastUrl = URL.createObjectURL(blob); return lastUrl; }
+
+  $('btnDownload').addEventListener('click', () => {
+    try {
+      const blob = makeUsdz();
+      const a = document.createElement('a');
+      a.href = freshUrl(blob); a.download = fileName();
+      document.body.appendChild(a); a.click(); a.remove();
+      setStatus(`Saved ${fileName()} (${(blob.size / 1024).toFixed(0)} KB).`);
+    } catch (e) { setStatus(e.message, true); }
+  });
+
+  // AR Quick Look needs <a rel="ar"> with an <img> as its only child.
+  const probe = document.createElement('a');
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const canAR = isIOS && probe.relList && probe.relList.supports && probe.relList.supports('ar');
+  if (canAR) $('btnAR').hidden = false;
+  $('btnAR').addEventListener('click', () => {
+    try {
+      const blob = makeUsdz();
+      const a = document.createElement('a');
+      a.rel = 'ar';
+      a.href = freshUrl(blob) + '#allowsContentScaling=0';
+      a.appendChild(document.createElement('img'));
+      document.body.appendChild(a); a.click(); a.remove();
+      setStatus('Opening AR Quick Look… switch to the AR tab and aim at the target.');
+    } catch (e) { setStatus(e.message, true); }
+  });
+
+  // ---------- example images (generated, so the page opens ready to try) ----------
+  function mulberry(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function exampleTarget() {
+    const cv = document.createElement('canvas'); cv.width = 1200; cv.height = 800;
+    const ctx = cv.getContext('2d'), r = mulberry(42);
+    ctx.fillStyle = '#f4f1e8'; ctx.fillRect(0, 0, 1200, 800);
+    const cols = ['#0b7a74', '#e8531f', '#16201f', '#f2b705', '#2b59c3'];
+    for (let i = 0; i < 140; i++) {
+      ctx.fillStyle = cols[Math.floor(r() * cols.length)];
+      ctx.globalAlpha = 0.55 + r() * 0.45;
+      const x = r() * 1200, y = r() * 800, s = 12 + r() * 90;
+      const kind = r();
+      ctx.beginPath();
+      if (kind < 0.4) ctx.arc(x, y, s / 2, 0, Math.PI * 2);
+      else if (kind < 0.75) { ctx.save(); ctx.translate(x, y); ctx.rotate(r() * Math.PI); ctx.rect(-s/2, -s/4, s, s/2); ctx.restore(); }
+      else { ctx.moveTo(x, y - s/2); ctx.lineTo(x + s/2, y + s/2); ctx.lineTo(x - s/2, y + s/2); ctx.closePath(); }
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#16201f'; ctx.fillRect(60, 300, 1080, 200);
+    ctx.fillStyle = '#f4f1e8'; ctx.font = '800 150px "Bricolage Grotesque", system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ANCHOR 42', 600, 405);
+    return cv;
+  }
+  function exampleOverlay() {
+    const cv = document.createElement('canvas'); cv.width = 800; cv.height = 800;
+    const ctx = cv.getContext('2d');
+    ctx.translate(400, 400);
+    ctx.beginPath();
+    for (let i = 0; i < 24; i++) {
+      const a = i / 24 * Math.PI * 2, rr = i % 2 ? 300 : 380;
+      ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    ctx.closePath(); ctx.fillStyle = '#e8531f'; ctx.fill();
+    ctx.lineWidth = 16; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+    ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '800 150px "Bricolage Grotesque", system-ui, sans-serif'; ctx.fillText('HELLO', 0, -30);
+    ctx.font = '600 64px "Figtree", system-ui, sans-serif'; ctx.fillText('you found it', 0, 90);
+    return cv;
+  }
+  async function loadExamples() {
+    try { await document.fonts.ready; } catch (_) {}
+    const t = exampleTarget(), o = exampleOverlay();
+    await setTarget(t, 'example-target');
+    await setOverlay(o, 'example-sticker');
+    $('metaTarget').prepend(Object.assign(document.createElement('div'), { textContent: 'Example image' }));
+    $('size').value = 60; render();
+  }
+  loadExamples();
+})();
+</script>
+</body>
+</html>
